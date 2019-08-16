@@ -28,7 +28,7 @@ var (
 	errUnexpectedLines = errors.New("unexpected number of lines")
 
 	mu                 sync.Mutex
-	detectionStateOf7z int // 0 - not checked, 1 - checked and present, 2 - checked and not present
+	p7zPath string
 )
 
 // Archive describes a single .7z archive
@@ -54,14 +54,12 @@ type Entry struct {
 func detect7zCached() error {
 	mu.Lock()
 	defer mu.Unlock()
-	if detectionStateOf7z == 0 {
-		if _, err := exec.LookPath("7z"); err != nil {
-			detectionStateOf7z = 2
-		} else {
-			detectionStateOf7z = 1
+	if p7zPath == "" {
+		if p, err := exec.LookPath("7z"); err == nil {
+			p7zPath = p
 		}
 	}
-	if detectionStateOf7z == 1 {
+	if p7zPath != "" {
 		// checked and present
 		return nil
 	}
@@ -215,7 +213,21 @@ func newArchive(path string, password *string) (*Archive, error) {
 	}
 	params = append(params, fmt.Sprintf("-p%s", tmpPassword))
 	params = append(params, path)
-	cmd := exec.Command("7z", params...)
+
+	/*
+	here we must use fullpath 7z
+	on QNAP nas
+		7-Zip [64] 16.02 : Copyright (c) 1999-2016 Igor Pavlov : 2016-05-21
+		p7zip Version 16.02 (locale=en_US.UTF-8,Utf16=on,HugeFiles=on,64 bits,4 CPUs x64)
+	if we do not use fullpath to exec 7z, it will result in error:
+		Can't load './7z.dll' (./7z.so: cannot open shared object file: No such file or directory)
+		ERROR:
+			7-Zip cannot find the code that works with archives.
+	I finally understand why most Linux use a shell file named 7z and its contents is just:
+		#! /bin/sh
+		"/usr/lib/p7zip/7z" "$@"
+	 */
+	cmd := exec.Command(p7zPath, params...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, err
@@ -268,7 +280,7 @@ func (a *Archive) GetFileReader(name string) (io.ReadCloser, error) {
 	}
 	params = append(params, a.Path, name)
 
-	cmd := exec.Command("7z", params...)
+	cmd := exec.Command(p7zPath, params...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
