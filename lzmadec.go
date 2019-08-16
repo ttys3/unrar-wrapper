@@ -230,7 +230,7 @@ func newArchive(path string, password *string) (*Archive, error) {
 	cmd := exec.Command(p7zPath, params...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("err: %s, out: %s", err.Error(), out)
 	}
 	entries, err := parse7zListOutput(out)
 	if err != nil {
