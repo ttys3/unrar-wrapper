@@ -44,6 +44,8 @@ type Entry struct {
 	Size       int64
 	PackedSize int // -1 means "size unknown"
 	Modified   time.Time
+	Created    time.Time //20190828 added, ArchLinux version has this https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/p7zip
+	Accessed   time.Time //20190828 added, ArchLinux version has this
 	Attributes string
 	CRC        string
 	Encrypted  string
@@ -107,12 +109,25 @@ func getEntryLines(scanner *bufio.Scanner) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(res) == 9 || len(res) == 0 {
+	if len(res) == 9 || len(res) == 11 || len(res) == 0 {
 		return res, nil
 	}
 	return nil, errUnexpectedLines
 }
 
+/*
+Path = thefilename.txt
+Size = 0
+Packed Size = 0
+Modified = 2019-08-28 16:38:07
+Created = 2019-08-28 16:38:07
+Accessed = 2019-08-28 16:37:54
+Attributes = D_ drwxr-xr-x
+CRC =
+Encrypted = -
+Method =
+Block =
+*/
 func parseEntryLines(lines []string) (Entry, error) {
 	var e Entry
 	var err error
@@ -138,6 +153,10 @@ func parseEntryLines(lines []string) (Entry, error) {
 			}
 		case "modified":
 			e.Modified, _ = time.Parse(timeLayout, v)
+		case "created":
+			e.Created, _ = time.Parse(timeLayout, v)
+		case "accessed":
+			e.Accessed, _ = time.Parse(timeLayout, v)
 		case "attributes":
 			e.Attributes = v
 		case "crc":
