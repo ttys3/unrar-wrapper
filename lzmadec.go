@@ -184,6 +184,10 @@ func parse7zListOutput(d []byte) ([]Entry, error) {
 	return res, nil
 }
 
+func Set7zPath(path string) {
+    p7zPath = path
+}
+
 func NewArchive(path string) (*Archive, error) {
 	return newArchive(path, nil)
 }
