@@ -1,0 +1,3 @@
+//in go.mod
+
+replace github.com/kjk/lzmadec => github.com/ttys3/lzmadec master
