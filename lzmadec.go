@@ -38,19 +38,34 @@ type Archive struct {
 	password *string
 }
 
-// Entry describes a single file inside .7z archive
+// Entry describes a single file inside .7z,.rar,.zip archive
 type Entry struct {
-	Path       string
-	Size       int64
-	PackedSize int // -1 means "size unknown"
-	Modified   time.Time
-	Created    time.Time //20190828 added, ArchLinux version has this https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/p7zip
-	Accessed   time.Time //20190828 added, ArchLinux version has this
-	Attributes string
-	CRC        string
-	Encrypted  string
-	Method     string
-	Block      int
+	Path            string
+	Size            int64
+	PackedSize      int // -1 means "size unknown"
+	Modified        time.Time
+	Created         time.Time //20190828 added, ArchLinux version has this https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/p7zip
+	Accessed        time.Time //20190828 added, ArchLinux version has this
+	Attributes      string
+	CRC             string
+	Encrypted       string
+	Method          string
+	Block           int
+	Comment         string //zip only
+	VolumeIndex     string //zip only
+	Solid           string //rar only
+	Commented       string //rar lagecy only
+	SplitBefore     string //rar only
+	SplitAfter      string //rar only
+	AlternateStream string //rar only, rar 5.7.1
+	SymbolicLink    string //rar only, rar 5.7.1
+	HardLink        string //rar only, rar 5.7.1
+	CopyLink        string //rar only, rar 5.7.1
+	Checksum        string //rar only, rar 5.7.1
+	NTSecurity      string //rar only, rar 5.7.1
+	Folder          string //zip, rar
+	HostOS          string //zip, rar
+	Version         string //zip, rar lagecy
 }
 
 func detect7zCached() error {
@@ -109,25 +124,14 @@ func getEntryLines(scanner *bufio.Scanner) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(res) == 9 || len(res) == 11 || len(res) == 0 {
+	//.7z may have 9 or 11, .zip may have 15, .rar may have 17 or 21
+	if len(res) == 9 || len(res) == 11 || len(res) == 15 || len(res) == 17 || len(res) == 21 || len(res) == 0 {
 		return res, nil
 	}
+	fmt.Printf("err: has lines: %d", len(res))
 	return nil, errUnexpectedLines
 }
 
-/*
-Path = thefilename.txt
-Size = 0
-Packed Size = 0
-Modified = 2019-08-28 16:38:07
-Created = 2019-08-28 16:38:07
-Accessed = 2019-08-28 16:37:54
-Attributes = D_ drwxr-xr-x
-CRC =
-Encrypted = -
-Method =
-Block =
-*/
 func parseEntryLines(lines []string) (Entry, error) {
 	var e Entry
 	var err error
@@ -167,6 +171,37 @@ func parseEntryLines(lines []string) (Entry, error) {
 			e.Method = v
 		case "block":
 			e.Block, err = strconv.Atoi(v)
+		case "comment":
+			e.Comment = v
+		case "volume index":
+			e.VolumeIndex = v
+		case "solid":
+			e.Solid = v
+		case "commented":
+			e.Commented = v
+		case "split before":
+			e.SplitBefore = v
+		case "split after":
+			e.SplitAfter = v
+		case "folder":
+			e.Folder = v
+		case "host os":
+			e.HostOS = v
+		case "version":
+			e.Version = v
+			//rar 5.7.1
+			case "alternate stream":
+				e.AlternateStream = v
+		case "symbolic link":
+			e.SymbolicLink = v
+		case "hard link":
+			e.HardLink = v
+		case "copy link":
+			e.CopyLink = v
+		case "checksum":
+			e.Checksum = v
+		case "nt security":
+			e.NTSecurity = v
 		default:
 			err = fmt.Errorf("unexpected entry line '%s'", name)
 		}
