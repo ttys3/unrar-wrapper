@@ -89,6 +89,7 @@ NT Security =
 
 /*
 windows version 7z
+zip: 17 lines
 "C:\Program Files\7-Zip\7z.exe" l -slt  chromedriver_win32.zip
 
 7-Zip 19.00 (x64) : Copyright (c) 1999-2018 Igor Pavlov : 2019-02-21
@@ -121,4 +122,35 @@ Host OS = FAT
 Version = 20
 Volume Index = 0
 Offset = 0
+ */
+
+/*
+rar: 23 lines
+"C:\Program Files\7-Zip\7z.exe" l -slt IDM.xxxxx.rar
+
+7-Zip 19.00 (x64) : Copyright (c) 1999-2018 Igor Pavlov : 2019-02-21
+
+Path = IDM.xxxxxxxxx-AoRE.exe
+Folder = -
+Size = 39424
+Packed Size = 36895
+Modified = 2018-11-17 11:32:04
+Created =
+Accessed =
+Attributes = A
+Alternate Stream = -
+Encrypted = -
+Solid = -
+Split Before = -
+Split After = -
+CRC = 4D1DA63A
+Host OS = Windows
+Method = m5:17
+Characteristics = CRC Time:M
+Symbolic Link =
+Hard Link =
+Copy Link =
+Volume Index =
+Checksum =
+NT Security =
  */
