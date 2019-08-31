@@ -53,6 +53,7 @@ type Entry struct {
 	Block           int
 	Comment         string //zip only
 	VolumeIndex     string //zip only
+	Characteristics string //zip only
 	Solid           string //rar only
 	Commented       string //rar lagecy only
 	SplitBefore     string //rar only
@@ -202,6 +203,8 @@ func parseEntryLines(lines []string) (Entry, error) {
 			e.Checksum = v
 		case "nt security":
 			e.NTSecurity = v
+		case "characteristics":
+			e.Characteristics = v
 		default:
 			err = fmt.Errorf("unexpected entry line '%s'", name)
 		}

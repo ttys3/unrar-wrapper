@@ -86,3 +86,39 @@ Copy Link =
 Checksum =
 NT Security =
 */
+
+/*
+windows version 7z
+"C:\Program Files\7-Zip\7z.exe" l -slt  chromedriver_win32.zip
+
+7-Zip 19.00 (x64) : Copyright (c) 1999-2018 Igor Pavlov : 2019-02-21
+
+Scanning the drive for archives:
+1 file, 4599757 bytes (4492 KiB)
+
+Listing archive: chromedriver_win32.zip
+
+--
+Path = chromedriver_win32.zip
+Type = zip
+Physical Size = 4599757
+
+----------
+Path = chromedriver.exe
+Folder = -
+Size = 8713728
+Packed Size = 4599627
+Modified = 2018-12-10 14:54:46
+Created =
+Accessed =
+Attributes =  -rwxrwxrwx
+Encrypted = -
+Comment =
+CRC = 4A032CBD
+Method = Deflate
+Characteristics =
+Host OS = FAT
+Version = 20
+Volume Index = 0
+Offset = 0
+ */
