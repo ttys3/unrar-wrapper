@@ -52,8 +52,9 @@ type Entry struct {
 	Method          string
 	Block           int
 	Comment         string //zip only
-	VolumeIndex     string //zip only
+	VolumeIndex     int //zip only
 	Characteristics string //zip only
+	Offset			int //zip only
 	Solid           string //rar only
 	Commented       string //rar lagecy only
 	SplitBefore     string //rar only
@@ -175,7 +176,7 @@ func parseEntryLines(lines []string) (Entry, error) {
 		case "comment":
 			e.Comment = v
 		case "volume index":
-			e.VolumeIndex = v
+			e.VolumeIndex, err = strconv.Atoi(v)
 		case "solid":
 			e.Solid = v
 		case "commented":
@@ -190,9 +191,9 @@ func parseEntryLines(lines []string) (Entry, error) {
 			e.HostOS = v
 		case "version":
 			e.Version = v
-			//rar 5.7.1
-			case "alternate stream":
-				e.AlternateStream = v
+		//rar 5.7.1
+		case "alternate stream":
+			e.AlternateStream = v
 		case "symbolic link":
 			e.SymbolicLink = v
 		case "hard link":
@@ -205,6 +206,8 @@ func parseEntryLines(lines []string) (Entry, error) {
 			e.NTSecurity = v
 		case "characteristics":
 			e.Characteristics = v
+		case "offset":
+			e.Offset, err = strconv.Atoi(v)
 		default:
 			err = fmt.Errorf("unexpected entry line '%s'", name)
 		}
