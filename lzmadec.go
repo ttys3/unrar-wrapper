@@ -127,7 +127,8 @@ func getEntryLines(scanner *bufio.Scanner) ([]string, error) {
 		return nil, err
 	}
 	//.7z may have 9 or 11, .zip may have 15, .rar may have 17, 21 or 23
-	if len(res) == 9 || len(res) == 11 || len(res) == 15 || len(res) == 17 || len(res) == 21 || len(res) == 23 || len(res) == 0 {
+	// len(res) == 9 || len(res) == 11 || len(res) == 15 || len(res) == 17 || len(res) == 21 || len(res) == 23 || len(res) == 0
+	if (len(res) >= 9 && len(res) <= 23) || len(res) == 0 {
 		return res, nil
 	}
 	fmt.Printf("err: has lines: %d", len(res))
@@ -150,6 +151,9 @@ func parseEntryLines(lines []string) (Entry, error) {
 		switch name {
 		case "path":
 			e.Path = v
+			if e.Path == "" {
+				err = fmt.Errorf("Path field can not be empty")
+			}
 		case "size":
 			e.Size, err = strconv.ParseInt(v, 10, 64)
 		case "packed size":
@@ -165,6 +169,9 @@ func parseEntryLines(lines []string) (Entry, error) {
 			e.Accessed, _ = time.Parse(timeLayout, v)
 		case "attributes":
 			e.Attributes = v
+			if e.Attributes == "" {
+				err = fmt.Errorf("Attributes field can not be empty")
+			}
 		case "crc":
 			e.CRC = v
 		case "encrypted":

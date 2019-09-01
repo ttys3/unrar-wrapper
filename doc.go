@@ -154,3 +154,26 @@ Volume Index =
 Checksum =
 NT Security =
  */
+
+/*
+winrar 4.0 created archive under windows: 18 lines
+
+Path = WinRAR\WinRAR.lnk
+Folder = -
+Size = 949
+Packed Size = 563
+Modified = 2019-09-01 09:13:10
+Created =
+Accessed =
+Attributes = A
+Encrypted = -
+Solid = -
+Commented = -
+Split Before = -
+Split After = -
+CRC = 1152BA81
+Host OS = Win32
+Method = m3:17
+Version = 29
+Volume Index =
+ */
