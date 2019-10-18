@@ -246,6 +246,21 @@ func parse7zListOutput(d []byte) ([]Entry, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// fixup empty Attributes for .iso
+		if e.Attributes == "" && e.Folder != "" {
+			if e.Folder == "+" {
+				e.Attributes = "D"
+			} else if e.Folder == "-" {
+				e.Attributes = "A"
+			}
+		}
+
+		// check e.Attributes
+		if e.Attributes == "" {
+			err = fmt.Errorf("Attributes field can not be empty")
+			return nil, err
+		}
 		res = append(res, e)
 	}
 	return res, nil
