@@ -177,3 +177,21 @@ Method = m3:17
 Version = 29
 Volume Index =
  */
+
+/*
+iso: 6 lines
+
+Path = VIDEO_TS
+Folder = +
+Size =
+Packed Size =
+Modified = 2013-05-12 17:06:06
+Accessed = 2013-05-12 17:06:06
+
+Path = VIDEO_TS/VIDEO_TS.IFO
+Folder = -
+Size = 6144
+Packed Size = 6144
+Modified = 2005-04-02 12:05:02
+Accessed = 2005-04-02 12:05:02
+ */
