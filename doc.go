@@ -194,4 +194,20 @@ Size = 6144
 Packed Size = 6144
 Modified = 2005-04-02 12:05:02
 Accessed = 2005-04-02 12:05:02
+*/
+
+/*
+iso: 5 lines
+
+Path = EFI
+Folder = +
+Size =
+Packed Size =
+Modified = 2019-08-02 00:10:10
+
+Path = EFI/boot
+Folder = +
+Size =
+Packed Size =
+Modified = 2019-08-02 00:10:10
  */
