@@ -314,6 +314,7 @@ func newArchive(path string, password *string) (*Archive, error) {
 		"/usr/lib/p7zip/7z" "$@"
 	 */
 	cmd := exec.Command(p7zPath, params...)
+	fixupEncoding(cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("err: %s, out: %s", err.Error(), out)
@@ -327,6 +328,25 @@ func newArchive(path string, password *string) (*Archive, error) {
 		Entries:  entries,
 		password: &tmpPassword,
 	}, nil
+}
+
+func fixupEncoding(cmd *exec.Cmd) {
+	//在 alpine linux下, 如果用 LANG=C , 7z l 列文件会变成�乱码, 这不是latin1编码,
+	//因此，在alpine linux下不能用 LANG=C, 可以不指定，或指定为LANG=en_US.UTF-8 都OK
+	//而经测试, 在ArchLinux下和QNAP系统下, LANG=C 或 LANG=en_US.UTF-8 都表现一致
+	envUpdateKV := "LANG=en_US.UTF-8"
+	osEnv := os.Environ()
+	if _, ok := os.LookupEnv("LANG"); ok {
+		for k, e := range osEnv {
+			if strings.HasPrefix(e, "LANG=") {
+				osEnv[k] = envUpdateKV
+				break
+			}
+		}
+	} else {
+		osEnv = append(osEnv, envUpdateKV)
+	}
+	cmd.Env = osEnv
 }
 
 type readCloser struct {
