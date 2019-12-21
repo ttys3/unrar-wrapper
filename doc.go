@@ -211,3 +211,18 @@ Size =
 Packed Size =
 Modified = 2019-08-02 00:10:10
  */
+
+/*
+tar: 10 lines
+
+Path = ./config
+Folder = +
+Size = 0
+Packed Size = 0
+Modified = 2019-12-19 00:43:40
+Mode = 0rwxrwxrwx
+User = git
+Group = git
+Symbolic Link =
+Hard Link =
+*/

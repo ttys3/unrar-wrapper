@@ -68,6 +68,9 @@ type Entry struct {
 	Folder          string //zip, rar
 	HostOS          string //zip, rar
 	Version         string //zip, rar lagecy
+	User string //tar
+	Group string //tar
+	Mode string //tar
 }
 
 func detect7zCached() error {
@@ -215,6 +218,12 @@ func parseEntryLines(lines []string) (Entry, error) {
 			e.Characteristics = v
 		case "offset":
 			e.Offset, err = strconv.Atoi(v)
+		case "mode":
+			e.Mode = v
+		case "user":
+			e.User = v
+		case "group":
+			e.Group = v
 		default:
 			err = fmt.Errorf("unexpected entry line '%s'", name)
 		}
