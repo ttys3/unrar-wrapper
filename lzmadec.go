@@ -155,7 +155,7 @@ func parseEntryLines(lines []string) (Entry, error) {
 		case "path":
 			e.Path = v
 			if e.Path == "" {
-				err = fmt.Errorf("Path field can not be empty")
+				err = fmt.Errorf("path field can not be empty")
 			}
 		case "size":
 			e.Size, err = strconv.ParseInt(v, 10, 64)
@@ -173,7 +173,7 @@ func parseEntryLines(lines []string) (Entry, error) {
 		case "attributes":
 			e.Attributes = v
 			if e.Attributes == "" {
-				err = fmt.Errorf("Attributes field can not be empty")
+				err = fmt.Errorf("attributes field can not be empty")
 			}
 		case "crc":
 			e.CRC = v
