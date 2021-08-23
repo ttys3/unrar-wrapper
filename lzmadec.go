@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -134,7 +135,7 @@ func getEntryLines(scanner *bufio.Scanner) ([]string, error) {
 	if (len(res) >= 5 && len(res) <= 23) || len(res) == 0 {
 		return res, nil
 	}
-	fmt.Printf("err: has lines: %d", len(res))
+	fmt.Printf("err: has invalid line count=%d", len(res))
 	return nil, errUnexpectedLines
 }
 
@@ -144,7 +145,7 @@ func parseEntryLines(lines []string) (Entry, error) {
 	for _, s := range lines {
 		parts := strings.SplitN(s, " =", 2)
 		if len(parts) != 2 {
-			return e, fmt.Errorf("unexpected line: '%s'", s)
+			return e, fmt.Errorf("unexpected line=%s", s)
 		}
 		name := strings.ToLower(parts[0])
 		v := strings.TrimSpace(parts[1])
@@ -225,7 +226,7 @@ func parseEntryLines(lines []string) (Entry, error) {
 		case "group":
 			e.Group = v
 		default:
-			err = fmt.Errorf("unexpected entry line '%s'", name)
+			err = fmt.Errorf("unexpected entry field=%s", name)
 		}
 		if err != nil {
 			return e, err
@@ -267,7 +268,7 @@ func parse7zListOutput(d []byte) ([]Entry, error) {
 
 		// check e.Attributes
 		if e.Attributes == "" {
-			err = fmt.Errorf("Attributes field can not be empty")
+			err = fmt.Errorf("attributes field can not be empty")
 			return nil, err
 		}
 		res = append(res, e)
@@ -324,11 +325,41 @@ func newArchive(path string, password *string) (*Archive, error) {
 	 */
 	cmd := exec.Command(p7zPath, params...)
 	fixupEncoding(cmd)
-	out, err := cmd.CombinedOutput()
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+
+	/*
+	Listing archive: /home/ttys3/Downloads/aria2/2108154.part1.rar
+
+	--
+	Path = /home/ttys3/Downloads/aria2/2108154.part1.rar
+	Type = Rar
+	ERROR = Missing volume : 2108154.part4.rar
+	Physical Size = 3308257280
+	Total Physical Size = 9924771840
+	Characteristics = Volume NewVolName BlockEncryption FirstVolume VolCRC
+	Solid = -
+	Blocks = 13
+	Multivolume = +
+	Volume Index = 0
+	Volumes = 3
+	 */
 	if err != nil {
-		return nil, fmt.Errorf("err: %s, out: %s", err.Error(), out)
+		errMsg := strings.TrimSpace(stderr.String())
+		if errMsg == "" {
+			errMsg = strings.TrimSpace(stdout.String())
+		}
+		re := regexp.MustCompile(`ERROR = Missing volume : .+`)
+		subs := re.FindStringSubmatch(errMsg)
+		if len(subs) > 0 {
+			errMsg = strings.Join(subs, ",")
+		}
+		return nil, fmt.Errorf("err=%s run_err=%s", errMsg, err.Error())
 	}
-	entries, err := parse7zListOutput(out)
+	entries, err := parse7zListOutput(stdout.Bytes())
 	if err != nil {
 		return nil, err
 	}
