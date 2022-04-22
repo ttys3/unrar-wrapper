@@ -40,8 +40,10 @@ type Archive struct {
 // Entry describes a single file inside .7z,.rar,.zip archive
 type Entry struct {
 	Path            string
-	Size            int64
-	PackedSize      int // -1 means "size unknown"
+	Size            int64 // extracted size in bytes, for deb file, it is just compressed size
+	PackedSize      int64 // -1 means "size unknown"
+	PhysicalSize    int64 // rpm xz size
+	ClusterSize     int64 // rpm xz extracted size
 	Modified        time.Time
 	Created         time.Time // 20190828 added, ArchLinux version has this https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/p7zip
 	Accessed        time.Time // 20190828 added, ArchLinux version has this
@@ -71,7 +73,6 @@ type Entry struct {
 	Group           string // tar
 	Mode            string // tar
 	Type            string // rpm
-	PhysicalSize    string // rpm
 }
 
 func detect7zCached() error {
@@ -178,7 +179,7 @@ func parseEntryLines(lines []string) (Entry, error) {
 		case "packed size":
 			e.PackedSize = -1
 			if v != "" {
-				e.PackedSize, err = strconv.Atoi(v)
+				e.PackedSize, err = strconv.ParseInt(v, 10, 64)
 			}
 		case "modified":
 			e.Modified, _ = time.Parse(timeLayout, v)
@@ -241,8 +242,20 @@ func parseEntryLines(lines []string) (Entry, error) {
 		case "type":
 			// type = Rpm/xz
 			e.Type = v
-		case "Physical Size":
-			e.PhysicalSize = v
+		case "physical size":
+			if v != "" {
+				e.PhysicalSize, err = strconv.ParseInt(v, 10, 64)
+				if e.PackedSize <= 0 {
+					e.PackedSize = e.PhysicalSize
+				}
+			}
+		case "cluster size":
+			if v != "" {
+				e.ClusterSize, err = strconv.ParseInt(v, 10, 64)
+				if e.Size <= 0 {
+					e.Size = e.ClusterSize
+				}
+			}
 			// default:
 			// 	err = fmt.Errorf("unexpected entry field=%s", name)
 		}
