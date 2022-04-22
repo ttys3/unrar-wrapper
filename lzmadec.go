@@ -26,9 +26,7 @@ var (
 	// ErrNoEntries is returned if the archive has no files
 	ErrNoEntries = errors.New("no entries in 7z file")
 
-	errUnexpectedLines = errors.New("unexpected number of lines")
-
-	mu                 sync.Mutex
+	mu      sync.Mutex
 	p7zPath string
 )
 
@@ -45,33 +43,35 @@ type Entry struct {
 	Size            int64
 	PackedSize      int // -1 means "size unknown"
 	Modified        time.Time
-	Created         time.Time //20190828 added, ArchLinux version has this https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/p7zip
-	Accessed        time.Time //20190828 added, ArchLinux version has this
+	Created         time.Time // 20190828 added, ArchLinux version has this https://git.archlinux.org/svntogit/packages.git/tree/trunk?h=packages/p7zip
+	Accessed        time.Time // 20190828 added, ArchLinux version has this
 	Attributes      string
 	CRC             string
 	Encrypted       string
 	Method          string
 	Block           int
-	Comment         string //zip only
-	VolumeIndex     int //zip only
-	Characteristics string //zip only
-	Offset			int //zip only
-	Solid           string //rar only
-	Commented       string //rar lagecy only
-	SplitBefore     string //rar only
-	SplitAfter      string //rar only
-	AlternateStream string //rar only, rar 5.7.1
-	SymbolicLink    string //rar only, rar 5.7.1
-	HardLink        string //rar only, rar 5.7.1
-	CopyLink        string //rar only, rar 5.7.1
-	Checksum        string //rar only, rar 5.7.1
-	NTSecurity      string //rar only, rar 5.7.1
-	Folder          string //zip, rar
-	HostOS          string //zip, rar
-	Version         string //zip, rar lagecy
-	User string //tar
-	Group string //tar
-	Mode string //tar
+	Comment         string // zip only
+	VolumeIndex     int    // zip only
+	Characteristics string // zip only
+	Offset          int    // zip only
+	Solid           string // rar only
+	Commented       string // rar lagecy only
+	SplitBefore     string // rar only
+	SplitAfter      string // rar only
+	AlternateStream string // rar only, rar 5.7.1
+	SymbolicLink    string // rar only, rar 5.7.1
+	HardLink        string // rar only, rar 5.7.1
+	CopyLink        string // rar only, rar 5.7.1
+	Checksum        string // rar only, rar 5.7.1
+	NTSecurity      string // rar only, rar 5.7.1
+	Folder          string // zip, rar
+	HostOS          string // zip, rar
+	Version         string // zip, rar lagecy
+	User            string // tar
+	Group           string // tar
+	Mode            string // tar
+	Type            string // rpm
+	PhysicalSize    string // rpm
 }
 
 func detect7zCached() error {
@@ -90,6 +90,9 @@ func detect7zCached() error {
 	return Err7zNotAvailable
 }
 
+const RpmSep = "--"
+const NormalSep = "----------"
+
 /*
 ----------
 Path = Badges.xml
@@ -103,9 +106,17 @@ Method = BZip2
 Block = 0
 */
 func advanceToFirstEntry(scanner *bufio.Scanner) error {
+	rpmSepCount := 0
 	for scanner.Scan() {
 		s := scanner.Text()
-		if s == "----------" {
+		// for rpm
+		if s == RpmSep {
+			rpmSepCount++
+		}
+		if rpmSepCount == 2 {
+			return nil
+		}
+		if s == NormalSep {
 			return nil
 		}
 	}
@@ -124,19 +135,23 @@ func getEntryLines(scanner *bufio.Scanner) ([]string, error) {
 		if s == "" {
 			break
 		}
+		if s == NormalSep {
+			break
+		}
 		res = append(res, s)
 	}
 	err := scanner.Err()
 	if err != nil {
 		return nil, err
 	}
-	//.iso may have 5 or 6, .7z may have 9 or 11, .zip may have 15, .rar may have 17, 21 or 23
+	// .iso may have 5 or 6, .7z may have 9 or 11, .zip may have 15, .rar may have 17, 21 or 23
 	// len(res) == 6 || len(res) == 9 || len(res) == 11 || len(res) == 15 || len(res) == 17 || len(res) == 21 || len(res) == 23 || len(res) == 0
-	if (len(res) >= 5 && len(res) <= 23) || len(res) == 0 {
-		return res, nil
-	}
-	fmt.Printf("err: has invalid line count=%d", len(res))
-	return nil, errUnexpectedLines
+	// if (len(res) >= 5 && len(res) <= 23) || len(res) == 0 {
+	// 	return res, nil
+	// }
+	// fmt.Printf("err: has invalid line count=%d", len(res))
+	// return nil, errUnexpectedLines
+	return res, nil
 }
 
 func parseEntryLines(lines []string) (Entry, error) {
@@ -145,7 +160,7 @@ func parseEntryLines(lines []string) (Entry, error) {
 	for _, s := range lines {
 		parts := strings.SplitN(s, " =", 2)
 		if len(parts) != 2 {
-			return e, fmt.Errorf("unexpected line=%s", s)
+			return e, fmt.Errorf("unexpected line, invalid key value pair, parts_len=%v raw_line=%s", len(parts), s)
 		}
 		name := strings.ToLower(parts[0])
 		v := strings.TrimSpace(parts[1])
@@ -172,10 +187,8 @@ func parseEntryLines(lines []string) (Entry, error) {
 		case "accessed":
 			e.Accessed, _ = time.Parse(timeLayout, v)
 		case "attributes":
+			// iso or rpm does not have attributes field
 			e.Attributes = v
-			if e.Attributes == "" {
-				err = fmt.Errorf("attributes field can not be empty")
-			}
 		case "crc":
 			e.CRC = v
 		case "encrypted":
@@ -202,7 +215,7 @@ func parseEntryLines(lines []string) (Entry, error) {
 			e.HostOS = v
 		case "version":
 			e.Version = v
-		//rar 5.7.1
+		// rar 5.7.1
 		case "alternate stream":
 			e.AlternateStream = v
 		case "symbolic link":
@@ -225,8 +238,13 @@ func parseEntryLines(lines []string) (Entry, error) {
 			e.User = v
 		case "group":
 			e.Group = v
-		default:
-			err = fmt.Errorf("unexpected entry field=%s", name)
+		case "type":
+			// type = Rpm/xz
+			e.Type = v
+		case "Physical Size":
+			e.PhysicalSize = v
+			// default:
+			// 	err = fmt.Errorf("unexpected entry field=%s", name)
 		}
 		if err != nil {
 			return e, err
@@ -257,6 +275,11 @@ func parse7zListOutput(d []byte) ([]Entry, error) {
 			return nil, err
 		}
 
+		// skip path field empty item, which maybe invalid
+		if e.Path == "" {
+			// continue
+		}
+
 		// fixup empty Attributes for .iso
 		if e.Attributes == "" && e.Folder != "" {
 			if e.Folder == "+" {
@@ -266,18 +289,13 @@ func parse7zListOutput(d []byte) ([]Entry, error) {
 			}
 		}
 
-		// check e.Attributes
-		if e.Attributes == "" {
-			err = fmt.Errorf("attributes field can not be empty")
-			return nil, err
-		}
 		res = append(res, e)
 	}
 	return res, nil
 }
 
 func Set7zPath(path string) {
-    p7zPath = path
+	p7zPath = path
 }
 
 func NewArchive(path string) (*Archive, error) {
@@ -311,18 +329,18 @@ func newArchive(path string, password *string) (*Archive, error) {
 	params = append(params, path)
 
 	/*
-	here we must use fullpath 7z
-	on QNAP nas
-		7-Zip [64] 16.02 : Copyright (c) 1999-2016 Igor Pavlov : 2016-05-21
-		p7zip Version 16.02 (locale=en_US.UTF-8,Utf16=on,HugeFiles=on,64 bits,4 CPUs x64)
-	if we do not use fullpath to exec 7z, it will result in error:
-		Can't load './7z.dll' (./7z.so: cannot open shared object file: No such file or directory)
-		ERROR:
-			7-Zip cannot find the code that works with archives.
-	I finally understand why most Linux use a shell file named 7z and its contents is just:
-		#! /bin/sh
-		"/usr/lib/p7zip/7z" "$@"
-	 */
+		here we must use fullpath 7z
+		on QNAP nas
+			7-Zip [64] 16.02 : Copyright (c) 1999-2016 Igor Pavlov : 2016-05-21
+			p7zip Version 16.02 (locale=en_US.UTF-8,Utf16=on,HugeFiles=on,64 bits,4 CPUs x64)
+		if we do not use fullpath to exec 7z, it will result in error:
+			Can't load './7z.dll' (./7z.so: cannot open shared object file: No such file or directory)
+			ERROR:
+				7-Zip cannot find the code that works with archives.
+		I finally understand why most Linux use a shell file named 7z and its contents is just:
+			#! /bin/sh
+			"/usr/lib/p7zip/7z" "$@"
+	*/
 	cmd := exec.Command(p7zPath, params...)
 	fixupEncoding(cmd)
 
@@ -332,21 +350,21 @@ func newArchive(path string, password *string) (*Archive, error) {
 	err = cmd.Run()
 
 	/*
-	Listing archive: /home/ttys3/Downloads/aria2/2108154.part1.rar
+		Listing archive: /home/ttys3/Downloads/aria2/2108154.part1.rar
 
-	--
-	Path = /home/ttys3/Downloads/aria2/2108154.part1.rar
-	Type = Rar
-	ERROR = Missing volume : 2108154.part4.rar
-	Physical Size = 3308257280
-	Total Physical Size = 9924771840
-	Characteristics = Volume NewVolName BlockEncryption FirstVolume VolCRC
-	Solid = -
-	Blocks = 13
-	Multivolume = +
-	Volume Index = 0
-	Volumes = 3
-	 */
+		--
+		Path = /home/ttys3/Downloads/aria2/2108154.part1.rar
+		Type = Rar
+		ERROR = Missing volume : 2108154.part4.rar
+		Physical Size = 3308257280
+		Total Physical Size = 9924771840
+		Characteristics = Volume NewVolName BlockEncryption FirstVolume VolCRC
+		Solid = -
+		Blocks = 13
+		Multivolume = +
+		Volume Index = 0
+		Volumes = 3
+	*/
 	if err != nil {
 		errMsg := strings.TrimSpace(stderr.String())
 		if errMsg == "" {
@@ -357,7 +375,7 @@ func newArchive(path string, password *string) (*Archive, error) {
 		if len(subs) > 0 {
 			errMsg = strings.Join(subs, ",")
 		}
-		return nil, fmt.Errorf("err=%s run_err=%s", errMsg, err.Error())
+		return nil, fmt.Errorf("err=%s cmd_run_err=%w", errMsg, err)
 	}
 	entries, err := parse7zListOutput(stdout.Bytes())
 	if err != nil {
@@ -371,9 +389,9 @@ func newArchive(path string, password *string) (*Archive, error) {
 }
 
 func fixupEncoding(cmd *exec.Cmd) {
-	//在 alpine linux下, 如果用 LANG=C , 7z l 列文件会变成�乱码, 这不是latin1编码,
-	//因此，在alpine linux下不能用 LANG=C, 可以不指定，或指定为LANG=en_US.UTF-8 都OK
-	//而经测试, 在ArchLinux下和QNAP系统下, LANG=C 或 LANG=en_US.UTF-8 都表现一致
+	// 在 alpine linux下, 如果用 LANG=C , 7z l 列文件会变成�乱码, 这不是latin1编码,
+	// 因此，在alpine linux下不能用 LANG=C, 可以不指定，或指定为LANG=en_US.UTF-8 都OK
+	// 而经测试, 在ArchLinux下和QNAP系统下, LANG=C 或 LANG=en_US.UTF-8 都表现一致
 	envUpdateKV := "LANG=en_US.UTF-8"
 	osEnv := os.Environ()
 	if _, ok := os.LookupEnv("LANG"); ok {
