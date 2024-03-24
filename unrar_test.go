@@ -1,54 +1,13 @@
-package lzmadec
+package unrarwrapper
 
 import "testing"
-
-//testing .7z
-func TestNewArchive7z(t *testing.T) {
-	fpath := "./test-data/example.7z"
-	if a, err := NewArchive(fpath); err != nil {
-		t.Errorf("NewArchive: %s, err: %s", fpath, err)
-		t.Fail()
-	} else {
-		for _,e := range a.Entries {
-			t.Logf("item: %+v",e)
-		}
-	}
-}
-
-func TestNewArchive7zEncrypted(t *testing.T) {
-	fpath := "./test-data/encrypted.7z"
-	if a, err := NewArchive(fpath); err != nil {
-		t.Errorf("NewArchive: %s, err: %s", fpath, err)
-		t.Fail()
-	} else {
-		for _,e := range a.Entries {
-			t.Logf("item: %+v",e)
-		}
-	}
-}
 
 //testing .zip
 func TestNewArchiveZip(t *testing.T) {
 	fpath := "./test-data/example.zip"
-	if a, err := NewArchive(fpath); err != nil {
-		t.Errorf("NewArchive: %s, err: %s", fpath, err)
+	if _, err := NewArchive(fpath); err == nil {
+		t.Errorf("NewArchive: %s should fail but not", fpath)
 		t.Fail()
-	} else {
-		for _,e := range a.Entries {
-			t.Logf("item: %+v",e)
-		}
-	}
-}
-
-func TestNewArchiveZipEncrypted(t *testing.T) {
-	fpath := "./test-data/encrypted.zip"
-	if a, err := NewArchive(fpath); err != nil {
-		t.Errorf("NewArchive: %s, err: %s", fpath, err)
-		t.Fail()
-	} else {
-		for _,e := range a.Entries {
-			t.Logf("item: %+v",e)
-		}
 	}
 }
 

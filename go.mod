@@ -1,3 +1,3 @@
-module github.com/kjk/lzmadec
+module github.com/ttys3/unrar-wrapper
 
-go 1.12
+go 1.22
