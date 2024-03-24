@@ -8,6 +8,7 @@ to current directory.
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/ttys3/unrar-wrapper"
 )
@@ -30,6 +31,10 @@ func main() {
 	fmt.Printf("opened archive '%s'\n", path)
 	fmt.Printf("Extracting %d entries\n", len(a.Entries))
 	for _, e := range a.Entries {
+		dirname := filepath.Dir(e.Name)
+		if _, err := os.Stat(dirname); os.IsNotExist(err) {
+			os.MkdirAll(dirname, 0755)
+		}
 		err = a.ExtractToFile(e.Name, e.Name)
 		if err != nil {
 			fmt.Printf("a.ExtractToFile('%s') failed with '%s'\n", e.Name, err)
