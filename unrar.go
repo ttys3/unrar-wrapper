@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,6 +37,7 @@ type Archive struct {
 	Path     string
 	Entries  []Entry
 	password *string
+	maxCpuNum int
 }
 
 type EntryType string
@@ -242,8 +244,9 @@ func newArchive(path string, password *string) (*Archive, error) {
 	if err != nil {
 		return nil, err
 	}
+	numCPU := runtime.NumCPU()
 
-	params := []string{"lt",}
+	params := []string{"lt", fmt.Sprintf("-mt%d", numCPU)}
 	var tmpPassword string
 	if password == nil || *password == "" {
 		// 7z interactively asks for a password when an archive is encrypted
@@ -286,6 +289,7 @@ func newArchive(path string, password *string) (*Archive, error) {
 		Path:     path,
 		Entries:  entries,
 		password: &tmpPassword,
+		maxCpuNum: numCPU,
 	}, nil
 }
 
@@ -339,7 +343,7 @@ func (a *Archive) GetFileReader(name string) (io.ReadCloser, error) {
 		return nil, errors.New("file not in the archive")
 	}
 
-	params := []string{"p"}
+	params := []string{"p", fmt.Sprintf("-mt%d", a.maxCpuNum)}
 	if a.password != nil {
 		params = append(params, fmt.Sprintf("-p%s", *a.password))
 	}
