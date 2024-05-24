@@ -18,7 +18,6 @@ func init() {
 	rarMultiPartRx = regexp.MustCompile(rarMultiPartRegex)
 }
 
-
 // rar multi volume filename format: basename.partX.rar
 func multiVolArchiveDetect(targetPath string) (isMultiVol bool, firstVolFullPath string, multiVolFiles []string, err error) {
 	extLower := strings.ToLower(filepath.Ext(targetPath))
@@ -53,6 +52,8 @@ func chunkify(s string) []string {
 
 // naturalCompare returns true if the first string precedes the second one according to natural order
 // code mod from https://github.com/facette/natsort/blob/master/natsort.go
+// see also https://github.com/maruel/natural/blob/main/natsort.go
+// and https://github.com/facette/natsort/pull/2
 func naturalCompare(a, b string) int {
 	if a == b {
 		return 0
