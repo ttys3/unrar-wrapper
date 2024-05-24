@@ -36,7 +36,9 @@ var (
 type Archive struct {
 	Path     string
 	Entries  []Entry
-	password *string
+	IsMultiVolume bool
+	Volumes  []string
+	password string
 	maxCpuNum int
 }
 
@@ -64,6 +66,8 @@ type Entry struct {
 	Flags       string // Flags: encrypted (directory does not have this field)
 
 	Type       EntryType // Type: Directory or File
+
+	RarFilename *string // the rar filename of the entry belongs to, a single entry may in two volumes
 }
 
 func detectUnRARCached() error {
@@ -193,7 +197,7 @@ func parseEntryLines(lines []string) (Entry, error) {
 	return e, nil
 }
 
-func parseUnRARListOutput(d []byte) ([]Entry, error) {
+func parseUnRARListOutput(filename string, d []byte) ([]Entry, error) {
 	var res []Entry
 	r := bytes.NewBuffer(d)
 	scanner := bufio.NewScanner(r)
@@ -221,6 +225,7 @@ func parseUnRARListOutput(d []byte) ([]Entry, error) {
 			continue
 		}
 
+		e.RarFilename = &filename
 		res = append(res, e)
 	}
 	return res, nil
@@ -231,34 +236,63 @@ func SetUnRARPath(path string) {
 }
 
 func NewArchive(path string) (*Archive, error) {
-	return newArchive(path, nil)
+	return newArchive(path, "")
 }
 
 func NewEncryptedArchive(path string, password string) (*Archive, error) {
-	return newArchive(path, &password)
+	return newArchive(path, password)
 }
 
 // NewArchive uses 7z to extract a list of files in .7z archive
-func newArchive(path string, password *string) (*Archive, error) {
+func newArchive(path string, password string) (*Archive, error) {
 	err := detectUnRARCached()
 	if err != nil {
 		return nil, err
 	}
 	numCPU := runtime.NumCPU()
 
-	params := []string{"lt", fmt.Sprintf("-mt%d", numCPU)}
-	var tmpPassword string
-	if password == nil || *password == "" {
-		// 7z interactively asks for a password when an archive is encrypted
-		// and no password has been supplied. But it has no problems when
-		// a password has been supplied and the archive is not encrypted.
-		// So if no password has been provided, use a non-sensical one to
-		// prevent 7z from blocking on encrypted archives and instead fail
-		tmpPassword = "                  "
-	} else {
-		tmpPassword = *password
+	isMultiVol, _, volumes, err := multiVolArchiveDetect(path)
+	if err != nil {
+		return nil, fmt.Errorf("multiVolArchiveDetect failed, err=%w", err)
 	}
-	params = append(params, fmt.Sprintf("-p%s", tmpPassword))
+	if !isMultiVol {
+		volumes = []string{path}
+	}
+	var entries []Entry
+	var entryFileMap = make(map[string]struct{})
+	for _, vol := range volumes {
+		tmpEntries, err := listFiles(vol, password, numCPU)
+		if err != nil {
+			return nil, fmt.Errorf("listFiles failed, filename=%v err=%w", vol, err)
+		}
+
+		for _, e := range tmpEntries {
+			// remove duplicate entries
+			// the first file of next volume maybe also in previous volume
+			if _, ok := entryFileMap[e.Name]; ok {
+				continue
+			}
+			entryFileMap[e.Name] = struct{}{}
+			entries = append(entries, e)
+		}
+	}
+
+	return &Archive{
+		Path:      path,
+		Entries:   entries,
+		IsMultiVolume: isMultiVol,
+		Volumes: volumes,
+		password:  password,
+		maxCpuNum: numCPU,
+	}, nil
+}
+
+func listFiles(path string, password string, numCPU int) ([]Entry,error) {
+	params := []string{"lt", fmt.Sprintf("-mt%d", numCPU)}
+
+	if password != "" {
+		params = append(params, fmt.Sprintf("-p%s", password))
+	}
 	params = append(params, path)
 
 	cmd := exec.Command(unrarPath, params...)
@@ -267,7 +301,7 @@ func newArchive(path string, password *string) (*Archive, error) {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	err = cmd.Run()
+	err := cmd.Run()
 
 	if err != nil {
 		errMsg := strings.TrimSpace(stderr.String())
@@ -279,18 +313,13 @@ func newArchive(path string, password *string) (*Archive, error) {
 		if len(subs) > 0 {
 			errMsg = strings.Join(subs, ",")
 		}
-		return nil, fmt.Errorf("err=%s cmd_run_err=%w", errMsg, err)
+		return nil, fmt.Errorf("list cmd run err=%s cmd_run_err=%w", errMsg, err)
 	}
-	entries, err := parseUnRARListOutput(stdout.Bytes())
+	entries, err := parseUnRARListOutput(path, stdout.Bytes())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parseUnRARListOutput failed, err=%w", err)
 	}
-	return &Archive{
-		Path:     path,
-		Entries:  entries,
-		password: &tmpPassword,
-		maxCpuNum: numCPU,
-	}, nil
+	return entries, nil
 }
 
 func fixupEncoding(cmd *exec.Cmd) {
@@ -333,9 +362,11 @@ func (rc *readCloser) Close() error {
 // GetFileReader returns a reader for reading a given file
 func (a *Archive) GetFileReader(name string) (io.ReadCloser, error) {
 	found := false
+	var entry Entry
 	for _, e := range a.Entries {
 		if e.Name == name {
 			found = true
+			entry = e
 			break
 		}
 	}
@@ -344,10 +375,15 @@ func (a *Archive) GetFileReader(name string) (io.ReadCloser, error) {
 	}
 
 	params := []string{"p", fmt.Sprintf("-mt%d", a.maxCpuNum)}
-	if a.password != nil {
-		params = append(params, fmt.Sprintf("-p%s", *a.password))
+	if a.password != "" {
+		params = append(params, fmt.Sprintf("-p%s", a.password))
 	}
-	params = append(params, a.Path, name)
+
+	filePath := a.Path
+	if entry.RarFilename != nil {
+		filePath = *entry.RarFilename
+	}
+	params = append(params, filePath, name)
 
 	cmd := exec.Command(unrarPath, params...)
 	stdout, err := cmd.StdoutPipe()
@@ -389,4 +425,8 @@ func (a *Archive) ExtractToFile(dstPath string, name string) error {
 	}
 	defer f.Close()
 	return a.ExtractToWriter(f, name)
+}
+
+func (a *Archive) GetVolumes() ([]string, bool) {
+	return a.Volumes, a.IsMultiVolume
 }
